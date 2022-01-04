@@ -19,7 +19,7 @@ jobs:
 
     # install packages needed
     - name: install required packages
-      run: Rscript -e 'install.packages(c("rmarkdown","prettydog","tidyverse","treemapify","patchwork", "downloader", "rnaturalearth", "rnaturalearthdata"))'
+      run: Rscript -e 'install.packages(c("rmarkdown","prettydog","tidyverse","treemapify","patchwork", "downloader", "rnaturalearth", "rnaturalearthdata", "ggdist"))'
 
     # Render READEME.md using rmarkdown
     - name: render README
