@@ -1,0 +1,550 @@
+---
+title: "Earth Engine App Infos"
+author: "Posted by Philipp Gärtner, `r Sys.Date()`"
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+    toc: yes
+    fig_width: 9
+    fig_caption: yes
+    keep_md: yes
+---
+
+**[Earth Engine Apps](https://developers.google.com/earth-engine/guides/apps) are dynamic, shareable user interfaces for Earth Engine analyses. The [ee-appshot](https://github.com/samapriya/ee-appshot) repository from [Samapriya Roy](https://twitter.com/samapriyaroy) creates a weekly snapshot of available Earth Engine Apps and provides their URL's and script source codes.**
+
+**The ee-appshot-info repository analyzes the script source codes and aggregates information on how creators use Earth Engine, what data they load, and which areas they are interested in.**
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(fig.align="center")
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+
+knitr::opts_chunk$set(
+  fig.path = "man/figures/README-"
+)
+
+```
+
+```{r load-packages}
+
+# LOAD PACKAGES ----------
+library(tidyverse) 
+#library(stringr)
+#library(dplyr)
+#library(scales)
+library(treemapify)
+library(patchwork)
+#library(ggplot2)
+#library(maps)
+library(downloader) 
+library(rnaturalearth)
+library(rnaturalearthdata)
+
+```
+
+```{r}
+
+unlink("zip", recursive=TRUE) # delete zip folder
+unlink("unzipped", recursive=TRUE) # delete zip folder
+unlink("data", recursive=TRUE) # delete zip folder
+
+```
+
+
+
+
+```{r}
+
+if (!dir.exists("zip")) {dir.create("zip")}
+
+download(url = "https://github.com/samapriya/ee-appshot/archive/refs/heads/main.zip",
+         dest="zip/ee-appshot.zip", 
+         mode="wb") 
+
+```
+
+
+
+```{r unzip}
+
+files  <- list.files(path = "zip")
+
+if (!dir.exists("unzipped")) {dir.create("unzipped")}
+
+for (i in files) {
+  unzip(paste0("zip/",i), exdir="unzipped")
+}
+
+unlink("zip", recursive=TRUE) # delete zip folder
+```
+
+```{r include=FALSE}
+
+if (!dir.exists("data")) {dir.create("data")}
+
+file.copy(from = "unzipped/ee-appshot-main/ee-appshot.zip", to = "data", overwrite = TRUE)
+
+unlink("unzipped", recursive=TRUE) # delete zip folder
+
+```
+
+```{r }
+
+files  <- list.files(path = "data")
+
+if (!dir.exists("data/unzipped")) {dir.create("data/unzipped")}
+
+for (i in files) {
+  unzip(zipfile = paste0("data/",i), exdir="data/unzipped")
+}
+
+```
+
+
+
+```{r create-list-of-files, include=FALSE}
+
+# RENAME .js to .txt -------
+files <- list.files(path="data/unzipped", 
+                    recursive = TRUE,
+                    full.names = TRUE,
+                    pattern="*.js")
+newfiles <- gsub(".js$", ".txt", files)
+file.rename(files, newfiles)
+
+
+list_of_files <- list.files(path = "data/unzipped", 
+                            recursive = TRUE,
+                            full.names = TRUE,
+                            pattern = "\\.txt$")
+
+```
+
+
+```{r create-empty-dataframes}
+
+# ee_data ----
+ee_data    <- data.frame(V1 = NA, V2 = NA, type = NA, path = NA)
+ee_lat_lon <- data.frame(V1 = NA, V2 = NA, path = NA)
+ee_req     <- data.frame(V1 = NA, V2 = NA, path = NA)
+script_length <- data.frame(length = NA, path = NA)
+
+```
+
+```{r for_loop}
+
+for (i in 1:length(list_of_files)){
+  
+  #print(i)
+  #print(list_of_files[i])
+  
+  script    <- readLines(list_of_files[i], warn = FALSE)     # read .txt file
+  script_df <- as.data.frame(script)                         # convert to df
+  
+  ee <- script_df %>%
+    mutate_if(is.character, trimws) %>%                      # trim whitespaces
+    filter(str_detect(script, "^\\//", negate = TRUE)) %>%   # delete oneline comments
+    filter(str_detect(script, "^\\/", negate = TRUE))        # delete multiline comments
+  
+  script_length[i,1] <- nrow(ee)
+  script_length[i,2] <- list_of_files[i]
+ 
+  ## find ee.Image(' xxx ') ----
+  ee_image <- str_match(ee$script, "ee.Image\\('\\s*(.*?)\\s*\\'")
+  ee_image <- as.data.frame(ee_image)
+  
+  ## find ee.Image(" xxx ") ----
+  ee_image2 <- str_match(ee$script, "ee.Image\\(\\\"\\s*(.*?)\\s*\\\"")
+  ee_image2 <- as.data.frame(ee_image2)
+  
+  ee_images <- rbind(ee_image, ee_image2)
+  
+  ee_images <- ee_images %>%
+    filter(if_all(everything(), ~ !is.na(.x))) %>%            # delete NA's
+    filter(str_detect(V2, "^users", negate = TRUE)) %>%       # filter out specific user Images
+    mutate(
+      type = c("ee_Image"), path = list_of_files[i])
+  
+  ##############################################################################
+  
+  ## find ee.ImageCollection(' xxx ') ----
+  ee_image_collection <- str_match(ee$script, "ee.ImageCollection\\('\\s*(.*?)\\s*\\'")
+  ee_image_collection <- as.data.frame(ee_image_collection)
+  
+  ## find ee.ImageCollection(" xxx ") ----
+  ee_image_collection2 <- str_match(ee$script, "ee.ImageCollection\\(\\\"\\s*(.*?)\\s*\\\"")
+  ee_image_collection2 <- as.data.frame(ee_image_collection2)
+  
+  ee_imagecollections <- rbind(ee_image_collection, ee_image_collection2)
+  
+  ee_imagecollections <- ee_imagecollections %>%
+    filter(if_all(everything(), ~ !is.na(.x))) %>%
+    filter(str_detect(V2, "^users", negate = TRUE)) %>%
+    mutate(type = c("ee_ImageCollection"),path = list_of_files[i])
+  
+  ##############################################################################
+  
+  ## find ee.FeatureCollection(' xxx ') ----
+  ee_feature_collection <- str_match(ee$script, "ee.FeatureCollection\\('\\s*(.*?)\\s*\\'")
+  ee_feature_collection <- as.data.frame(ee_feature_collection)
+  
+  ## find ee.FeatureCollection(" xxx ") ----
+  ee_feature_collection2 <- str_match(ee$script, "ee.FeatureCollection\\(\\\"\\s*(.*?)\\s*\\\"")
+  ee_feature_collection2 <- as.data.frame(ee_feature_collection2)
+  
+  ee_feature_collections <- rbind(ee_feature_collection, ee_feature_collection2)
+  
+  ee_feature_collections <- ee_feature_collections %>%
+    filter(if_all(everything(), ~ !is.na(.x))) %>%
+    filter(str_detect(V2, "^users", negate = TRUE)) %>%
+    filter(str_detect(V2, "^ft\\:", negate = TRUE)) %>%
+    mutate(type = c("ee_FeatureCollection"),path = list_of_files[i])
+  
+  ee_data <- rbind(ee_data, ee_images, ee_imagecollections, ee_feature_collections, fill=TRUE)
+  
+  ###
+  
+  ee_location <- str_match(ee$script, "setCenter\\(\\s*(.*?)\\s*\\)")
+  ee_location <- as.data.frame(ee_location)
+  
+  ee_location <- ee_location %>%
+    filter(if_all(everything(), ~ !is.na(.x))) %>%
+    mutate(path = list_of_files[i])
+  
+  ee_lat_lon <- rbind(ee_lat_lon, ee_location, fill=TRUE)
+  
+  ###
+  
+  ee_require <- str_match(ee$script, "require\\(\\s*(.*?)\\s*\\)")
+  ee_require <- as.data.frame(ee_require)
+  
+  ee_require <- ee_require %>%
+    filter(if_all(everything(), ~ !is.na(.x))) %>%
+    mutate(path = list_of_files[i])
+  
+  ee_req <- rbind(ee_req, ee_require, fill=TRUE)
+} 
+
+```
+
+# App Code Length
+
+Currently, the repository contains **`r length(list_of_files)`** scripts with a median of **`r round(median(script_length$length),0)`** lines of code (comments excluded). 
+
+```{r plot-script-length}
+
+#xx <- data.frame(value = script_length)
+script_length$group <- 1
+script_length$type <- "a"
+
+p1 <- ggplot(script_length, aes(x = group, fill = type, y = length)) + 
+  ggdist::stat_halfeye(
+    adjust = .5, 
+    width = .6, 
+    .width = 0, 
+    justification = -.2, 
+    point_colour = NA
+  ) + 
+  geom_boxplot(
+    width = .12, 
+    alpha = .5,
+    color = "#4B985A",
+    outlier.shape = NA
+  ) + 
+  geom_point(
+    size = 1.3,
+    alpha = .15,
+    position = position_jitter(seed = 1, width = .05),
+    fill = alpha("#4B985A", 0.2), 
+    color = "#4B985A") + 
+  scale_y_log10() +
+  coord_flip() + 
+  scale_fill_manual(values=c("#4B985A")) +
+  theme_minimal() +
+  annotate("text", y = median(script_length$length), x = 1.14, 
+           color = "#404040",label = paste0(median(script_length$length), " Lines"), size = 3.5) + 
+  labs(x = "", y = "Code Length",
+       caption = paste0("\n","Scripts: ",nrow(script_length)," • Last Updated: ", Sys.Date(),"\n", "Visualization: Philippp Gärtner (@Mixed_Pixels) • Design Inspiration: Cédric Scherer")
+       ) +
+  theme(legend.position = "none",
+        panel.grid.minor.y = element_blank(),
+        panel.grid.major.y = element_blank(),
+        axis.text.y = element_blank(),
+        plot.caption = element_text(hjust = 0.5))
+  
+p1  
+```
+
+
+```{r delete-NA-TRUE2}
+
+ee_data <- ee_data %>%
+  filter(if_all(everything(), ~ !is.na(.x))) %>% # delete NA's ----
+  filter(V1 != TRUE)
+
+#head(ee_data)
+```
+
+
+```{r }
+
+original <- ee_data %>%
+  group_by (type) %>%
+  summarise (n=n()) %>%
+  mutate(rel.freq =  scales::percent(n/sum(n), accuracy = 0.1)) %>%
+  arrange(desc(n)) %>%
+  mutate(type = stringr::str_replace(type, "[:punct:]", ".")) %>%
+  mutate(type = as_factor(type)) 
+  
+
+barplot <-  
+ggplot(original, aes(x = n, y = "a", fill = type)) + 
+  geom_col(position = "fill") + 
+  geom_text(aes(label = paste0(n, "\n(",rel.freq,")")), position = "fill", vjust = 1.5) +
+  
+  geom_text(aes(label = paste0(type)), position = "fill",
+            angle=90,vjust=-2,hjust = 3,colour = "black") +
+  theme_minimal() +
+  scale_fill_manual(values = c("#1f72c2", "#965618","#64b273" ),
+                    labels=c("ee.ImageCollection", "ee.Image", "ee.FeatureCollection") ) +
+  coord_flip() +
+  labs(x = "", y = "", fill = "EE object requests") +
+  theme(legend.position = "none",
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank()
+        ) 
+
+#barplot
+
+```
+ 
+
+ 
+```{r}
+
+#ee_img <- ee_data %>% dplyr::filter(type == "ee_Image") 
+ee_ic  <- ee_data %>% dplyr::filter(type == "ee_ImageCollection") 
+ee_fc  <- ee_data %>% dplyr::filter(type == "ee_FeatureCollection") 
+
+```
+
+
+
+```{r}
+
+get_values <- function(x, group_size, collectiontype) {
+  result <-  x %>% 
+    dplyr::mutate(
+        item = stringr::str_to_upper(V2),
+        group1 = str_split(V2, "/", simplify = TRUE, 4)[,1],
+        group2 = str_split(V2, "/", simplify = TRUE, 4)[,2],
+        group = paste0(as.character(group1), "/", as.character(group2), "/"),
+        group = forcats::fct_lump(group, n = group_size)
+        ) %>%
+    dplyr::count(group, sort = TRUE) %>%
+    dplyr::mutate(
+      group = forcats::fct_rev(forcats::fct_inorder(group)),
+      group = forcats::fct_relevel(group, "Other", after = 0)
+      ) %>%   
+    dplyr::mutate(
+      ## set justification based on data 
+      ## so that only the first label is placed inside
+      place = if_else(row_number() <= 2, 1, 0),
+      perc = scales::percent(n / sum(n), accuracy = .1, trim = FALSE),
+      perc = paste(" ",perc, " "),
+      perc = if_else(row_number() == 1, paste0(perc, "of all '", collectiontype,  "' requests"), perc)
+      )
+  return(result)
+}
+
+#ee_img_summary     <- get_values(ee_img, 12)
+ee_img_col_summary <- get_values(ee_ic, 32, "ee.ImageCollection")
+ee_fea_col_summary <- get_values(ee_fc, 16, "ee.FeatureCollection")
+
+```
+
+<br>
+
+# Usage of Common Earth Engine object classes
+  
+ee.ImageCollections are the most important objects in Earth Engine Apps (`r original[1,2]` out of `r sum(original$n)` object requests). The image sets of *`r ee_img_col_summary[1,1]`* are the most requested, followed by *`r ee_img_col_summary[2,1]`+* and *`r ee_img_col_summary[4,1]`+*. 
+
+For the ee.FeatureCollections, the [*`r ee_fea_col_summary[1,1]`*](https://developers.google.com/earth-engine/datasets/catalog/USDOS_LSIB_SIMPLE_2017?hl=en) dataset (Simplified International Boundary Polygons) is one of the most popular datasets. 
+
+It is noticeable that many requested datasets do not come from the Earth Engine data catalog but from the [awesome-gee-community-datasets](https://samapriya.github.io/awesome-gee-community-datasets/) collection (recognizable by the *projects*/ label)), which is also managed by [Samapriya Roy](https://twitter.com/samapriyaroy).
+
+```{r ee-ImageCollection, fig.width = 9, fig.height=10}
+
+## create color palette based on input data
+pal <- c("gray85",rep("gray70", length(ee_img_col_summary$group)-4), "#237fd8","#1f72c2", "#1c65ac")
+
+plot_img_col <- ggplot(ee_img_col_summary, aes(x = n, y = group, fill = group)) +
+  ## draw bars
+  geom_col() +
+  geom_text(aes(label = perc, hjust = place),
+            ## make labels left-aligned
+            size = 3.5, fontface = "bold"
+  ) +
+  ## reduce spacing between labels and bars
+  scale_x_continuous(expand = c(.01, .01)) +
+  ## add custom colors
+  scale_fill_manual(values = pal, guide = "none") +
+  ## change plot appearance
+  theme_minimal() + 
+  labs(y="",title = "ee.ImageCollection\n") + 
+  ## get rid of all elements except y axis labels + adjust plot margin
+  theme(axis.text.y = element_text(size = 14, hjust = 1),
+        plot.title = element_text(color = "#159957", size = 22),
+        plot.title.position = "plot"
+        ) 
+
+#plot_img_col
+
+```
+
+
+
+```{r fig.width = 9, fig.height=10}
+
+## create color palette based on input data
+pal <- c("gray85",rep("gray70", length(ee_fea_col_summary$group)-4), "#75bb82" ,"#64b273","#53a964")
+
+plot_fea_col <- ggplot(ee_fea_col_summary, aes(x = n, y = group, fill = group)) +
+  ## draw bars
+  geom_col() +
+  geom_text(aes(label = perc, hjust = place), size = 3.5, fontface = "bold") +
+  ## reduce spacing between labels and bars
+  scale_x_continuous(expand = c(.01, .01)) +
+  scale_fill_manual(values = pal, guide = "none") +
+  theme_minimal() + 
+  labs(y="",title = "ee.FeatureCollection\n",
+       caption = paste0("\n","Visualization: Philippp Gärtner (@Mixed_Pixels) • Design Inspiration: Cédric Scherer • Last Updated:", Sys.Date())) + 
+  theme(axis.text.y = element_text(size = 14, hjust = 1),
+        plot.title = element_text(color = "#159957", size = 22),
+        plot.title.position = "plot"
+        )
+
+#plot_fea_col
+
+```
+
+```{r patchwork,fig.width = 10, fig.height=15}
+
+layout <- "
+BBBBC
+BBBBC
+BBBBC
+AAAAC
+AAAAC
+"
+plot_fea_col + plot_img_col + barplot + plot_layout(design = layout)
+
+```
+
+ 
+
+
+```{r delete-NA-TRUE}
+
+ee_req_prep <- ee_req %>%
+  filter(if_all(everything(), ~ !is.na(.x))) %>% # delete NA's ----
+  filter(V1 != TRUE) %>%
+  distinct() %>%
+  dplyr::mutate(V2 = str_sub(V2, start = 2)) %>%
+  dplyr::mutate(V2 = str_sub(V2, end = -2)) %>%
+  dplyr::mutate(V2 = str_replace(V2, ".js", "")) %>%
+  mutate(group = str_split(V2, "/", simplify = TRUE, 4)[,2]) 
+
+
+ee_req_sum <- ee_req_prep %>%
+  group_by(V2) %>%
+  summarise (n=n()) %>%
+  ungroup() %>%
+  mutate(freq =  scales::percent(n/sum(n), accuracy = 0.1)) %>%
+  mutate(group = str_split(V2, "/", simplify = TRUE, 4)[,2]) 
+
+ee_req_sum2 <- ee_req_sum %>% filter(n > 10)
+
+
+```
+
+# Popular Script Modules
+
+It's good practice to write [modular, reusable code](https://developers.google.com/earth-engine/guides/playground?hl=en#script-modules) that can be shared between scripts without extensive copying and pasting. In total were `r length(table(ee_req_prep$V2))` unique modules requested. The most popular modules (+10 requests) are:
+
+```{r plot_modules_with_treemap}
+
+ggplot(ee_req_sum2, aes(area = n, fill = group, label = paste0(V2, "\n(",n, ")",sep = ""))) + 
+  geom_treemap() + 
+  geom_treemap_text(colour = "white", grow = TRUE,size = 20) +
+  labs(fill = "") +
+  theme(legend.position = "bottom",
+        plot.caption = element_text(hjust = 0.5)) +
+  labs(y="",
+       caption = paste0("\n","Unique Modules: ", nrow(ee_req_sum)," • Last Updated: ", Sys.Date(),"\n","Visualization: Philippp Gärtner (@Mixed_Pixels)")) 
+
+```
+```{r get_lat_lon}
+
+ee_lat_lon2 <- ee_lat_lon %>%
+  filter(if_all(everything(), ~ !is.na(.x))) %>% # delete NA's ----
+  filter(V1 != TRUE) %>%
+  filter(!str_detect(V2, "[:alpha:]")) %>%
+   mutate(V2 = stringr::str_replace(V2, "\\(", "")) %>%#filter(!str_detect(V2, "\\\")) %>%
+  dplyr::mutate(
+    lon = str_split(V2, ",", simplify = TRUE, 4)[,1],
+    lat = str_split(V2, ",", simplify = TRUE, 4)[,2],
+    zoom = str_split(V2, ",", simplify = TRUE, 4)[,3],
+    zoom = str_trim(zoom),
+    zoom = round(as.numeric(zoom),0),
+    lat = round(as.numeric(lat),2),
+    lon = round(as.numeric(lon),2),
+    group = paste0(lon, ",", lat)
+)
+  
+
+zoom <- as.data.frame(table(ee_lat_lon2$zoom))
+
+zoom$Var1 <- as.character(zoom$Var1)
+zoom$Var1 <- as.integer(zoom$Var1)
+
+xx <- as.data.frame(table(ee_lat_lon2$group))
+
+xx <- xx %>% dplyr::mutate(
+    lon = str_split(Var1, ",", simplify = TRUE, 4)[,1],
+    lat = str_split(Var1, ",", simplify = TRUE, 4)[,2]
+    
+)
+
+```
+
+<br>
+
+# Areas of Interest
+
+[Map.setCenter(lon, lat)](https://developers.google.com/earth-engine/apidocs/map-setcenter?hl=en) centers the map view to a given coordinate pair. All Map.setCenter() requests combined result in a world map of the community areas of interests. 
+
+```{r}
+xx$lon <- as.numeric(xx$lon)
+xx$lat <- as.numeric(xx$lat)
+
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+ggplot(data = world) +
+  geom_sf(color = "white", fill = "darkgrey", size = .15) + 
+  geom_point(data=xx, aes(x=lon, y=lat, size = as.numeric(xx$Freq)), 
+              colour="Deep Pink", fill="Pink",pch=21, alpha=I(0.7)) +
+  theme_void() +
+  labs(x = "", y = "", size = "") + 
+  theme(legend.position = "right",
+        plot.caption = element_text(hjust = 0.5)) +
+  labs(y="",
+       caption = paste0("\n","Map.setCenter() calls: ", nrow(xx)," • Last Updated: ", Sys.Date(),
+                        " • Visualization: Philippp Gärtner (@Mixed_Pixels)")) 
+ 
+```
