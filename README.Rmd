@@ -42,7 +42,7 @@ library(patchwork)
 library(downloader) 
 library(rnaturalearth)
 library(rnaturalearthdata)
-
+library(ggdist)
 ```
 
 ```{r}
