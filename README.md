@@ -13,7 +13,7 @@ load, and which areas they are interested in.**
 App Code Length
 ===============
 
-Currently, the repository contains **2942** scripts with a median of
+Currently, the repository contains **2948** scripts with a median of
 **180** lines of code (comments excluded).
 
 <img src="man/figures/README-plot-script-length-1.png" style="display: block; margin: auto;" />
@@ -24,7 +24,7 @@ Usage of Common Earth Engine object classes
 ===========================================
 
 ee.ImageCollections are the most important objects in Earth Engine Apps
-(6246 out of 10377 object requests). The image sets of *COPERNICUS/S2/*
+(6263 out of 10409 object requests). The image sets of *COPERNICUS/S2/*
 are the most requested, followed by *MODIS/006/+* and *LANDSAT/LC08/+*.
 
 For the ee.FeatureCollections, the
