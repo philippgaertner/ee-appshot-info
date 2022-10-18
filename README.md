@@ -13,7 +13,7 @@ load, and which areas they are interested in.**
 App Code Length
 ===============
 
-Currently, the repository contains **2914** scripts with a median of
+Currently, the repository contains **2919** scripts with a median of
 **172** lines of code (comments excluded).
 
 <img src="man/figures/README-plot-script-length-1.png" style="display: block; margin: auto;" />
@@ -24,11 +24,11 @@ Usage of Common Earth Engine object classes
 ===========================================
 
 ee.ImageCollections are the most important objects in Earth Engine Apps
-(6024 out of 10271 object requests). The image sets of *MODIS/006/* are
+(6042 out of 10314 object requests). The image sets of *MODIS/006/* are
 the most requested, followed by *COPERNICUS/S2/+* and *Other+*.
 
 For the ee.FeatureCollections, the
-[*projects/mapbiomas-workspace/*](https://developers.google.com/earth-engine/datasets/catalog/USDOS_LSIB_SIMPLE_2017?hl=en)
+[*Other*](https://developers.google.com/earth-engine/datasets/catalog/USDOS_LSIB_SIMPLE_2017?hl=en)
 dataset (Simplified International Boundary Polygons) is one of the most
 popular datasets.
 
