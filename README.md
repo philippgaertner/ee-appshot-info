@@ -13,8 +13,8 @@ load, and which areas they are interested in.**
 App Code Length
 ===============
 
-Currently, the repository contains **2919** scripts with a median of
-**172** lines of code (comments excluded).
+Currently, the repository contains **3719** scripts with a median of
+**186** lines of code (comments excluded).
 
 <img src="man/figures/README-plot-script-length-1.png" style="display: block; margin: auto;" />
 
@@ -24,8 +24,8 @@ Usage of Common Earth Engine object classes
 ===========================================
 
 ee.ImageCollections are the most important objects in Earth Engine Apps
-(6042 out of 10314 object requests). The image sets of *MODIS/006/* are
-the most requested, followed by *COPERNICUS/S2/+* and *Other+*.
+(7332 out of 12515 object requests). The image sets of *MODIS/006/* are
+the most requested, followed by *LANDSAT/LC08/+* and *Other+*.
 
 For the ee.FeatureCollections, the
 [*Other*](https://developers.google.com/earth-engine/datasets/catalog/USDOS_LSIB_SIMPLE_2017?hl=en)
@@ -46,7 +46,7 @@ Popular Script Modules
 It’s good practice to write [modular, reusable
 code](https://developers.google.com/earth-engine/guides/playground?hl=en#script-modules)
 that can be shared between scripts without extensive copying and
-pasting. In total were 519 unique modules requested. The most popular
+pasting. In total were 672 unique modules requested. The most popular
 modules (+10 requests) are:
 
 <img src="man/figures/README-plot_modules_with_treemap-1.png" style="display: block; margin: auto;" />
